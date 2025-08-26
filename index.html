@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ReelReveal - Film Insights</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+                'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+                sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // Configuration - Only need to point to your API folder
+        const CONFIG = {
+            API_BASE_URL: '' // Empty means same domain, will use /api/ endpoints
+        };
+
+        // Icon components (simplified versions)
+        const SearchIcon = () => (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <path d="m21 21-4.35-4.35"></path>
+            </svg>
+        );
+
+        const FilmIcon = () => (
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                <line x1="8" y1="21" x2="16" y2="21"></line>
+                <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+        );
+
+        const LoaderIcon = () => (
+            <svg className="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="2" x2="12" y2="6"></line>
+                <line x1="12" y1="18" x2="12" y2="22"></line>
+                <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
+                <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line>
+                <line x1="2" y1="12" x2="6" y2="12"></line>
+                <line x1="18" y1="12" x2="22" y2="12"></line>
+                <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
+                <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
+            </svg>
+        );
+
+        const ChevronDown = () => (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="6,9 12,15 18,9"></polyline>
+            </svg>
+        );
+
+        const ChevronUp = () => (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="18,15 12,9 6,15"></polyline>
+            </svg>
+        );
+
+        const ReelReveal = () => {
+            const [searchTerm, setSearchTerm] = React.useState('');
+            const [filmData, setFilmData] = React.useState(null);
+            const [insights, setInsights] = React.useState('');
+            const [expandedInsights, setExpandedInsights] = React.useState('');
+            const [loading, setLoading] = React.useState(false);
+            const [showMore, setShowMore] = React.useState(false);
+            const [error, setError] = React.useState('');
+
+            const searchFilm = async () => {
+                if (!searchTerm.trim()) return;
+                
+                setLoading(true);
+                setError('');
+                setFilmData(null);
+                setInsights('');
+                setExpandedInsights('');
+                setShowMore(false);
+
+                try {
+                    // Search for film using our backend API
+                    const response = await fetch(`${CONFIG.API_BASE_URL}/api/search/${encodeURIComponent(searchTerm)}`);
+                    
+                    if (!response.ok) {
+                        if (response.status === 404) {
+                            setError('No films found. Try a different search term.');
+                        } else {
+                            throw new Error('Failed to search for film');
+                        }
+                        setLoading(false);
+                        return;
+                    }
+                    
+                    const filmData = await response.json();
+                    setFilmData(filmData);
+
+                    // Generate insights using our backend API
+                    await generateInsights(filmData);
+                    
+                } catch (err) {
+                    setError('Something went wrong. Please try again.');
+                    console.error('Search error:', err);
+                }
+                
+                setLoading(false);
+            };
+
+            const generateInsights = async (filmData) => {
+                try {
+                    const director = filmData.credits.crew.find(person => person.job === 'Director');
+                    const mainCast = filmData.credits.cast.slice(0, 3);
+                    
+                    const requestData = {
+                        title: filmData.title,
+                        year: filmData.release_date?.split('-')[0],
+                        director: director?.name || 'Unknown',
+                        mainCast: mainCast.map(actor => actor.name),
+                        overview: filmData.overview,
+                        budget: filmData.budget,
+                        revenue: filmData.revenue,
+                        runtime: filmData.runtime,
+                        type: 'brief'
+                    };
+
+                    const response = await fetch(`${CONFIG.API_BASE_URL}/api/generate-insights`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(requestData)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Failed to generate insights');
+                    }
+
+                    const data = await response.json();
+                    setInsights(data.insights);
+                    
+                } catch (err) {
+                    console.error('Insights generation error:', err);
+                    setInsights('Unable to generate insights at the moment. Please try again later.');
+                }
+            };
+
+            const loadMoreInsights = async () => {
+                if (expandedInsights) {
+                    setShowMore(true);
+                    return;
+                }
+
+                setLoading(true);
+                
+                try {
+                    const director = filmData.credits.crew.find(person => person.job === 'Director');
+                    const mainCast = filmData.credits.cast.slice(0, 5);
+                    
+                    const requestData = {
+                        title: filmData.title,
+                        year: filmData.release_date?.split('-')[0],
+                        director: director?.name || 'Unknown',
+                        mainCast: mainCast.map(actor => actor.name),
+                        overview: filmData.overview,
+                        budget: filmData.budget,
+                        revenue: filmData.revenue,
+                        runtime: filmData.runtime,
+                        type: 'extended'
+                    };
+
+                    const response = await fetch(`${CONFIG.API_BASE_URL}/api/generate-insights`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(requestData)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Failed to generate extended insights');
+                    }
+
+                    const data = await response.json();
+                    setExpandedInsights(data.insights);
+                    setShowMore(true);
+                    
+                } catch (err) {
+                    console.error('Extended insights error:', err);
+                    setExpandedInsights('Unable to load more insights at the moment.');
+                    setShowMore(true);
+                }
+                
+                setLoading(false);
+            };
+
+            const handleKeyPress = (e) => {
+                if (e.key === 'Enter') {
+                    searchFilm();
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-black text-white">
+                    {/* Header */}
+                    <div className="bg-black border-b border-gray-800 py-6">
+                        <div className="max-w-4xl mx-auto px-4 text-center">
+                            <div className="flex items-center justify-center gap-3 mb-2">
+                                <FilmIcon />
+                                <h1 className="text-4xl font-bold text-white">ReelReveal</h1>
+                            </div>
+                            <p className="text-gray-300 text-lg">giving insights that make films even more interesting</p>
+                        </div>
+                    </div>
+
+                    {/* Search Section */}
+                    <div className="max-w-4xl mx-auto px-4 py-8">
+                        <div className="flex gap-2 mb-8">
+                            <div className="relative flex-1">
+                                <input
+                                    type="text"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    onKeyPress={handleKeyPress}
+                                    placeholder="Enter a film title..."
+                                    className="w-full px-4 py-3 bg-white text-black rounded-lg text-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                            <button
+                                onClick={searchFilm}
+                                disabled={loading}
+                                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 rounded-lg text-white font-medium transition-colors flex items-center gap-2"
+                            >
+                                {loading ? <LoaderIcon /> : <SearchIcon />}
+                                {loading ? 'Searching...' : 'Search'}
+                            </button>
+                        </div>
+
+                        {/* Error Message */}
+                        {error && (
+                            <div className="bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded-lg mb-6">
+                                {error}
+                            </div>
+                        )}
+
+                        {/* Results */}
+                        {filmData && (
+                            <div className="bg-gray-900 rounded-lg p-6 mb-6">
+                                <div className="flex flex-col md:flex-row gap-6">
+                                    {/* Movie Poster */}
+                                    {filmData.poster_path && (
+                                        <div className="md:w-48 flex-shrink-0">
+                                            <img
+                                                src={`https://image.tmdb.org/t/p/w300${filmData.poster_path}`}
+                                                alt={filmData.title}
+                                                className="w-full rounded-lg shadow-lg"
+                                            />
+                                        </div>
+                                    )}
+                                    
+                                    {/* Movie Info */}
+                                    <div className="flex-1">
+                                        <h2 className="text-3xl font-bold text-white mb-2">
+                                            {filmData.title}
+                                        </h2>
+                                        {filmData.release_date && (
+                                            <p className="text-gray-400 text-lg mb-4">
+                                                {new Date(filmData.release_date).getFullYear()}
+                                            </p>
+                                        )}
+                                        
+                                        <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+                                            {filmData.runtime && (
+                                                <div>
+                                                    <span className="text-gray-400">Runtime:</span>
+                                                    <span className="ml-2 text-white">{filmData.runtime} minutes</span>
+                                                </div>
+                                            )}
+                                            {filmData.vote_average > 0 && (
+                                                <div>
+                                                    <span className="text-gray-400">TMDB Rating:</span>
+                                                    <span className="ml-2 text-white">{filmData.vote_average.toFixed(1)}/10</span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {filmData.overview && (
+                                            <div className="mb-6">
+                                                <h3 className="text-lg font-semibold text-white mb-2">Plot Summary</h3>
+                                                <p className="text-gray-300 leading-relaxed">{filmData.overview}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Insights */}
+                        {insights && (
+                            <div className="bg-gray-900 rounded-lg p-6">
+                                <h3 className="text-2xl font-bold text-white mb-4">🎬 Film Insights</h3>
+                                <div className="text-gray-300 text-lg leading-relaxed space-y-4">
+                                    {insights.split('\n\n').map((sentence, index) => (
+                                        <p key={index}>{sentence}</p>
+                                    ))}
+                                </div>
+                                
+                                {/* More Information Button */}
+                                {filmData && (
+                                    <div className="mt-6">
+                                        <button
+                                            onClick={loadMoreInsights}
+                                            disabled={loading}
+                                            className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-white transition-colors"
+                                        >
+                                            {loading ? (
+                                                <LoaderIcon />
+                                            ) : showMore ? (
+                                                <ChevronUp />
+                                            ) : (
+                                                <ChevronDown />
+                                            )}
+                                            {loading ? 'Loading...' : showMore ? 'Show Less' : 'More Information'}
+                                        </button>
+                                    </div>
+                                )}
+                                
+                                {/* Extended Insights */}
+                                {showMore && expandedInsights && (
+                                    <div className="mt-6 pt-6 border-t border-gray-700">
+                                        <div className="text-gray-300 text-lg leading-relaxed space-y-4">
+                                            {expandedInsights.split('\n\n').map((sentence, index) => (
+                                                <p key={index}>{sentence}</p>
+                                            ))}
+                                        </div>
+                                        <button
+                                            onClick={() => setShowMore(false)}
+                                            className="mt-4 flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-white transition-colors"
+                                        >
+                                            <ChevronUp />
+                                            Show Less
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<ReelReveal />, document.getElementById('root'));
+    </script>
+</body>
+</html>
