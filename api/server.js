@@ -112,6 +112,4 @@ Provide a short summary covering trivia, challenges, cast/crew details, receptio
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+module.exports = app; // CommonJS export for Vercel serverless
