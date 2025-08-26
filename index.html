@@ -23,9 +23,12 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        // Configuration - Only need to point to your API folder
+        // Frontend note:
+        // No OpenAI-specific code is needed here; the backend (/api/generate-insights)
+        // now calls OpenAI Responses API with the web search tool.
+        // Leave API_BASE_URL empty to use same-origin /api/* endpoints on Vercel.
         const CONFIG = {
-            API_BASE_URL: '' // Empty means same domain, will use /api/ endpoints
+            API_BASE_URL: ''
         };
 
         // Icon components (simplified versions)
@@ -80,7 +83,7 @@
 
             const searchFilm = async () => {
                 if (!searchTerm.trim()) return;
-                
+
                 setLoading(true);
                 setError('');
                 setFilmData(null);
@@ -91,7 +94,7 @@
                 try {
                     // Search for film using our backend API
                     const response = await fetch(`${CONFIG.API_BASE_URL}/api/search/${encodeURIComponent(searchTerm)}`);
-                    
+
                     if (!response.ok) {
                         if (response.status === 404) {
                             setError('No films found. Try a different search term.');
@@ -101,18 +104,17 @@
                         setLoading(false);
                         return;
                     }
-                    
+
                     const filmData = await response.json();
                     setFilmData(filmData);
 
                     // Generate insights using our backend API
                     await generateInsights(filmData);
-                    
                 } catch (err) {
                     setError('Something went wrong. Please try again.');
                     console.error('Search error:', err);
                 }
-                
+
                 setLoading(false);
             };
 
@@ -120,7 +122,7 @@
                 try {
                     const director = filmData.credits.crew.find(person => person.job === 'Director');
                     const mainCast = filmData.credits.cast.slice(0, 3);
-                    
+
                     const requestData = {
                         title: filmData.title,
                         year: filmData.release_date?.split('-')[0],
@@ -135,19 +137,14 @@
 
                     const response = await fetch(`${CONFIG.API_BASE_URL}/api/generate-insights`, {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(requestData)
                     });
 
-                    if (!response.ok) {
-                        throw new Error('Failed to generate insights');
-                    }
+                    if (!response.ok) throw new Error('Failed to generate insights');
 
                     const data = await response.json();
                     setInsights(data.insights);
-                    
                 } catch (err) {
                     console.error('Insights generation error:', err);
                     setInsights('Unable to generate insights at the moment. Please try again later.');
@@ -161,11 +158,11 @@
                 }
 
                 setLoading(true);
-                
+
                 try {
                     const director = filmData.credits.crew.find(person => person.job === 'Director');
                     const mainCast = filmData.credits.cast.slice(0, 5);
-                    
+
                     const requestData = {
                         title: filmData.title,
                         year: filmData.release_date?.split('-')[0],
@@ -180,26 +177,21 @@
 
                     const response = await fetch(`${CONFIG.API_BASE_URL}/api/generate-insights`, {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(requestData)
                     });
 
-                    if (!response.ok) {
-                        throw new Error('Failed to generate extended insights');
-                    }
+                    if (!response.ok) throw new Error('Failed to generate extended insights');
 
                     const data = await response.json();
                     setExpandedInsights(data.insights);
                     setShowMore(true);
-                    
                 } catch (err) {
                     console.error('Extended insights error:', err);
                     setExpandedInsights('Unable to load more insights at the moment.');
                     setShowMore(true);
                 }
-                
+
                 setLoading(false);
             };
 
@@ -266,7 +258,7 @@
                                             />
                                         </div>
                                     )}
-                                    
+
                                     {/* Movie Info */}
                                     <div className="flex-1">
                                         <h2 className="text-3xl font-bold text-white mb-2">
@@ -277,7 +269,7 @@
                                                 {new Date(filmData.release_date).getFullYear()}
                                             </p>
                                         )}
-                                        
+
                                         <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
                                             {filmData.runtime && (
                                                 <div>
@@ -313,7 +305,7 @@
                                         <p key={index}>{sentence}</p>
                                     ))}
                                 </div>
-                                
+
                                 {/* More Information Button */}
                                 {filmData && (
                                     <div className="mt-6">
@@ -333,7 +325,7 @@
                                         </button>
                                     </div>
                                 )}
-                                
+
                                 {/* Extended Insights */}
                                 {showMore && expandedInsights && (
                                     <div className="mt-6 pt-6 border-t border-gray-700">
