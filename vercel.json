@@ -1,17 +1,12 @@
 {
-  "name": "reel-reveal-api",
-  "version": "1.0.0",
-  "description": "API for ReelReveal film insights app",
-  "main": "api/server.js",
-  "scripts": {
-    "start": "node api/server.js"
-  },
-  "dependencies": {
-    "cors": "^2.8.5",
-    "express": "^4.18.2",
-    "openai": "^4.60.0"
-  },
-  "engines": {
-    "node": ">=18"
-  }
+  "version": 2,
+  "builds": [
+    { "src": "api/server.js", "use": "@vercel/node" },
+    { "src": "index.html", "use": "@vercel/static" },
+    { "src": ".*", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/server.js" },
+    { "src": "/(.*)", "dest": "/$1" }
+  ]
 }
